@@ -1,12 +1,12 @@
 from tkinter import *
-import os, threading, requests, mouse
+import subprocess, threading, requests, mouse
 
-URL = 'http://0.0.0.0:61208/api/3/'
+URL = 'http://localhost:61208/api/3/all'
 DELAY = 1
 
 TITLE = 'GlancesOSD'
 ICON_PATH = 'test.png'
-ROOT_GEO = (240, 135, 100, 100)
+ROOT_GEO = (240, 135, 240, 135)
 MENU_GEO = (480, 270, 480, 270)
 FONT_FAMILY, FONT_SIZE = 'Consolas', 12
 TITLE_SIZE = 50
@@ -18,27 +18,31 @@ global root, menu, svar, label
 global wx, wy
 
 def init_glances():
-    os.system("glances -w > /dev/null 2> /dev/null &")
+    subprocess.Popen(["glances", "-w"], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    threading.Timer(DELAY, polling).start()
 
 def polling():
     global running
     if not running: return
-    threading.Timer(DELAY, polling).start()
-    # print(label.winfo_reqwidth())
-    # if (label.winfo_reqwidth() == 1): return
-    try:
-        cpu = requests.get(URL + 'cpu').json()
-        gpu = requests.get(URL + 'gpu').json()
-        mem = requests.get(URL + 'mem').json()
-        sen = requests.get(URL + 'sensors').json()
-        cpu_msg = f'CPU  {cpu["total"]:6.1f}%  {sen[2]["value"]:6.1f}\'C'
-        gpu_msg = f'GPU  {gpu[0]["proc"]:6.1f}%  {gpu[0]["temperature"]:6.1f}\'C' #°C
-        mem_msg = f'MEM  {int(mem["used"]/1e6):6d}M / {int(mem["total"]/1e6):}M  '
-        msg = '\n'.join([cpu_msg, gpu_msg, mem_msg])
-        global svar
-        svar.set(msg)
-        update_label()
+    data = ''
+    try: data = requests.get(URL).json()
     except: pass
+    cpu_used, cpu_temp, gpu_used, gpu_temp, mem_used, mem_total = [' '*6]*6
+    try: cpu_used = f'{data["cpu"]["total"]:6.1f}'
+    except: pass
+    try: cpu_temp = f'{data["sensors"][2]["value"]:6.1f}'
+    except: pass
+    try: gpu_used = f'{data["gpu"][0]["proc"]:6.1f}'
+    except: pass
+    try: gpu_temp = f'{data["gpu"][0]["temperature"]:6.1f}'
+    except: pass
+    try: mem_used = f'{int(data["mem"]["used"]/1e6):6d}'
+    except: pass
+    try: mem_total = f'{int(data["mem"]["total"]/1e6):6d}'
+    except: pass
+    set_label((cpu_used, cpu_temp, gpu_used, gpu_temp, mem_used, mem_total))
+    update_label()
+    threading.Timer(DELAY, polling).start()
 
 def on_released():
     root.bind('<B1-Motion>', lambda e: on_moved(e, mode = True))
@@ -70,15 +74,16 @@ def init_root():
     root.geometry("%dx%d+%d+%d" % ROOT_GEO)
     root.configure(background = BG)
     root.overrideredirect(True)
-    root.wm_attributes('-alpha', '0.75')
     root.attributes('-topmost', True)
+    root.lift()
     root.bind('<B1-Motion>', lambda e: on_moved(e, mode = True))
     root.bind('<ButtonRelease-1>', lambda e: on_released())
-    root.bind('<Visibility>', lambda e: polling()) 
     global svar, label
     svar = StringVar()
     label = Label(root, textvariable = svar, fg = FG, bg = BG, font = (FONT_FAMILY, FONT_SIZE))
     label.pack()
+    set_label([' '*6]*6)
+    update_label()
 
 def init_menu():
     global menu
@@ -101,15 +106,24 @@ def init_menu():
     Button(frame2, text = "Large", command = lambda: on_clicked_scale(16)).pack(side = LEFT, padx = 10)
     menu.protocol("WM_DELETE_WINDOW", on_closed)
 
+def set_label(data):
+    cpu_used, cpu_temp, gpu_used, gpu_temp, mem_used, mem_total = data
+    cpu_msg = f'CPU {cpu_used}% {cpu_temp}\'C'
+    gpu_msg = f'GPU {gpu_used}% {gpu_temp}\'C'
+    mem_msg = f'MEM {mem_used}/ {mem_total}MB'
+    msg = '\n'.join([cpu_msg, gpu_msg, mem_msg])
+    global svar
+    svar.set(msg)
+
 def update_label():
     w, h = label.winfo_reqwidth(), label.winfo_reqheight()
     x, y = root.winfo_x(), root.winfo_y()
     root.geometry(f'{w}x{h}+{x}+{y}')
 
 running = True
+init_glances()
 init_root()
 init_menu()
-init_glances()
 mainloop()
 running = False
 

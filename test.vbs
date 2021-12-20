@@ -1,0 +1,1 @@
+CreateObject("Wscript.Shell").Run "python test.py",0,True
