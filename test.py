@@ -38,9 +38,9 @@ def polling():
     except: pass
     try: gpu_temp = f'{data["gpu"][0]["temperature"]:6.1f}'
     except: pass
-    try: mem_used = f'{int(data["mem"]["used"]/1e6):6d}'
+    try: mem_used = f'{(data["mem"]["used"] / (1<<30)):6.1f}'
     except: pass
-    try: mem_total = f'{int(data["mem"]["total"]/1e6):6d}'
+    try: mem_total = f'{(data["mem"]["total"] / (1<<30)):6.1f}'
     except: pass
     set_label((cpu_used, cpu_temp, gpu_used, gpu_temp, mem_used, mem_total))
     update_label()
@@ -112,7 +112,7 @@ def set_label(data):
     cpu_used, cpu_temp, gpu_used, gpu_temp, mem_used, mem_total = data
     cpu_msg = f'CPU {cpu_used}% {cpu_temp}\'C'
     gpu_msg = f'GPU {gpu_used}% {gpu_temp}\'C'
-    mem_msg = f'MEM {mem_used}/ {mem_total}MB'
+    mem_msg = f'MEM {mem_used}/ {mem_total}GB'
     msg = '\n'.join([cpu_msg, gpu_msg, mem_msg])
     global svar
     svar.set(msg)
