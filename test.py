@@ -19,6 +19,8 @@ global wx, wy
 
 def init_glances():
     subprocess.Popen(["glances", "-w"], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+
+def init_polling():
     threading.Timer(DELAY, polling).start()
 
 def polling():
@@ -26,7 +28,7 @@ def polling():
     if not running: return
     data = ''
     try: data = requests.get(URL).json()
-    except: pass
+    except: init_glances()
     cpu_used, cpu_temp, gpu_used, gpu_temp, mem_used, mem_total = [' '*6]*6
     try: cpu_used = f'{data["cpu"]["total"]:6.1f}'
     except: pass
@@ -42,7 +44,7 @@ def polling():
     except: pass
     set_label((cpu_used, cpu_temp, gpu_used, gpu_temp, mem_used, mem_total))
     update_label()
-    threading.Timer(DELAY, polling).start()
+    init_polling()
 
 def on_released():
     root.bind('<B1-Motion>', lambda e: on_moved(e, mode = True))
@@ -121,7 +123,7 @@ def update_label():
     root.geometry(f'{w}x{h}+{x}+{y}')
 
 running = True
-init_glances()
+init_polling()
 init_root()
 init_menu()
 mainloop()
